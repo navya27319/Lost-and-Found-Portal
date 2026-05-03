@@ -25,7 +25,7 @@ A simple web-based Lost and Found system where users can report lost and found i
 
 ## 📸 Screenshot
 
-![Project Screenshot](./Screenshot 2026-05-03 180505)
+![Project Screenshot](./Screenshot2026-05-03180505.png)
 
 ## ⚙️ Installation
 
