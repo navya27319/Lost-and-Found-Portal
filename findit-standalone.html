@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>FindIt – Lost & Found</title>
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- React & Babel CDNs -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-soft: #dbeafe;
+            --secondary: #64748b;
+            --accent: #3b82f6;
+            --background: #f8fafc;
+            --surface: #ffffff;
+            --text: #1e293b;
+            --text-muted: #64748b;
+            --error: #ef4444;
+            --success: #22c55e;
+            --border: #e2e8f0;
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 20px;
+            --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+            --font-main: 'Outfit', sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: var(--font-main);
+            background-color: var(--background);
+            color: var(--text);
+            line-height: 1.5;
+            overflow-x: hidden;
+        }
+
+        button {
+            font-family: inherit;
+            cursor: pointer;
+            border: none;
+            background: none;
+            transition: all 0.2s ease;
+        }
+
+        input,
+        select,
+        textarea {
+            font-family: inherit;
+            font-size: 1rem;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: 12px;
+            width: 100%;
+            outline: none;
+            transition: border-color 0.2s ease;
+        }
+
+        input:focus,
+        select:focus,
+        textarea:focus {
+            border-color: var(--primary);
+        }
+
+        a {
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+            min-height: 100vh;
+            background: var(--surface);
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.05);
+            position: relative;
+        }
+
+        @media (max-width: 500px) {
+            .container {
+                box-shadow: none;
+            }
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border-radius: var(--radius-md);
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-soft {
+            background: var(--primary-soft);
+            color: var(--primary);
+        }
+
+        .card {
+            background: var(--surface);
+            border-radius: var(--radius-lg);
+            padding: 16px;
+            border: 1px solid var(--border);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .card:active {
+            transform: scale(0.98);
+        }
+
+        .badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .badge-lost {
+            background: #fee2e2;
+            color: #ef4444;
+        }
+
+        .badge-found {
+            background: #dcfce7;
+            color: #22c55e;
+        }
+
+        .section-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin: 24px 0 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translateY(20px);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        .animate-slide-up {
+            animation: slideUp 0.4s ease forwards;
+        }
+
+        .animate-fade-in {
+            animation: fadeIn 0.3s ease forwards;
+        }
+
+        /* Custom scrollbar for filter */
+        .filter-scroll::-webkit-scrollbar {
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, createContext, useContext, useRef } = React;
+
+        const AppContext = createContext();
+
+        const AppProvider = ({ children }) => {
+            const [user, setUser] = useState(() => {
+                try {
+                    const savedUser = localStorage.getItem('findit_user');
+                    return savedUser ? JSON.parse(savedUser) : null;
+                } catch (e) { return null; }
+            });
+
+            const [items, setItems] = useState(() => {
+                try {
+                    const savedItems = localStorage.getItem('findit_items');
+                    return savedItems ? JSON.parse(savedItems) : [
+                        { id: 1, title: 'iPhone 13 Pro', category: 'Electronics', location: 'College Cafeteria', date: '2026-02-10', status: 'Lost', image: 'https://images.unsplash.com/photo-1632661674596-df8be070a5c5?w=400&h=300&fit=crop', contact: '9876543210', description: 'Blue iPhone 13 Pro with a clear case.' },
+                        { id: 2, title: 'Black Leather Wallet', category: 'Wallet', location: 'Library, 2nd Floor', date: '2026-02-11', status: 'Found', image: 'https://images.unsplash.com/photo-1624855020412-23f2b43b6e8a?w=400&h=300&fit=crop', contact: 'Admin', description: 'Black leather wallet with student ID.' },
+                        { id: 3, title: 'Student ID Card', category: 'ID Card', location: 'Main Gate', date: '2026-02-12', status: 'Found', image: 'https://images.unsplash.com/photo-1610332858313-0941ad2ea874?w=400&h=300&fit=crop', contact: 'Security Office', description: 'Student ID card found near gate.' }
+                    ];
+                } catch (e) { return []; }
+            });
+
+            const [searchQuery, setSearchQuery] = useState('');
+            const [filterCategory, setFilterCategory] = useState('All');
+            const [currentPath, setCurrentPath] = useState('/');
+
+            useEffect(() => {
+                localStorage.setItem('findit_user', JSON.stringify(user));
+            }, [user]);
+
+            useEffect(() => {
+                localStorage.setItem('findit_items', JSON.stringify(items));
+            }, [items]);
+
+            const navigate = (path) => setCurrentPath(path);
+            const login = (userData) => setUser(userData);
+            const logout = () => { setUser(null); navigate('/'); };
+            const addItem = (newItem) => setItems(prev => [{ id: Date.now(), ...newItem }, ...prev]);
+            const removeItem = (id) => setItems(prev => prev.filter(i => i.id !== id));
+            const isAdmin = user?.email === 'admin@findit.com';
+
+            const filteredItems = items.filter(item => {
+                const matchesSearch = item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                    item.location.toLowerCase().includes(searchQuery.toLowerCase());
+                const matchesCategory = filterCategory === 'All' || item.category === filterCategory;
+                return matchesSearch && matchesCategory;
+            });
+
+            return (
+                <AppContext.Provider value={{
+                    user, login, logout, isAdmin, items: filteredItems, allItems: items,
+                    addItem, removeItem, searchQuery, setSearchQuery,
+                    filterCategory, setFilterCategory, currentPath, navigate
+                }}>
+                    {children}
+                </AppContext.Provider>
+            );
+        };
+
+        const useApp = () => useContext(AppContext);
+
+        const NavLink = ({ icon, label, path, active, onClick }) => (
+            <div
+                style={{
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', cursor: 'pointer', flex: 1,
+                    color: active ? 'var(--primary)' : 'var(--text-muted)'
+                }}
+                onClick={() => onClick(path)}
+            >
+                <span style={{ fontSize: '1.2rem', transition: 'transform 0.3s ease', transform: active ? 'scale(1.2)' : 'scale(1)' }}>{icon}</span>
+                <span style={{ fontSize: '0.7rem', fontWeight: active ? '700' : '500' }}>{label}</span>
+            </div>
+        );
+
+        const Layout = ({ children, title, showBack = false }) => {
+            const { user, logout, currentPath, navigate } = useApp();
+
+            return (
+                <div className="container animate-fade-in">
+                    <header style={{ padding: '24px 20px', background: 'var(--surface)', position: 'sticky', top: 0, zIndex: 50 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                            {showBack ? (
+                                <button onClick={() => navigate('/listing')} style={{ fontSize: '1.5rem', color: 'var(--text)' }}>←</button>
+                            ) : (
+                                <div style={{ fontSize: '1.5rem', fontWeight: '700', color: 'var(--primary)', cursor: 'pointer' }} onClick={() => navigate('/')}>FindIt</div>
+                            )}
+                            {user && (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                    <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>{user.name}</span>
+                                    <button onClick={logout} style={{ fontSize: '0.8rem', color: 'var(--error)', fontWeight: '500' }}>Logout</button>
+                                </div>
+                            )}
+                        </div>
+                        {title && <h1 style={{ fontSize: '1.8rem', fontWeight: '700', color: 'var(--text)' }}>{title}</h1>}
+                    </header>
+                    <main style={{ padding: '0 20px 80px 20px' }}>
+                        {children}
+                        <footer style={{ textAlign: 'center', padding: '8px 0', fontSize: '0.75rem', color: 'var(--text-muted)', opacity: 0.8 }}>
+                            this website was completed designed by Navya
+                        </footer>
+                    </main>
+                    <nav style={{
+                        position: 'fixed', bottom: 0, width: '100%', maxWidth: '500px', height: '70px',
+                        background: 'rgba(255, 255, 255, 0.9)', backdropFilter: 'blur(10px)', borderTop: '1px solid var(--border)',
+                        display: 'flex', justifyContent: 'space-around', alignItems: 'center', zIndex: 100
+                    }}>
+                        <NavLink icon="🏠" label="Home" path="/" active={currentPath === '/'} onClick={navigate} />
+                        <NavLink icon="🔍" label="Listing" path="/listing" active={currentPath === '/listing'} onClick={navigate} />
+                        <NavLink icon="➕" label="Report" path="/report" active={currentPath === '/report'} onClick={navigate} />
+                        <NavLink icon="⚙️" label="Admin" path="/admin" active={currentPath === '/admin'} onClick={navigate} />
+                    </nav>
+                </div>
+            );
+        };
+
+        const ItemCard = ({ item }) => {
+            const { navigate } = useApp();
+            return (
+                <div className="card animate-slide-up" style={{ marginBottom: '16px', cursor: 'pointer' }} onClick={() => navigate(`/item/${item.id}`)}>
+                    <img src={item.image} alt={item.title} style={{ width: '100%', height: '180px', objectFit: 'cover', borderRadius: 'var(--radius-md)', background: '#eee' }} />
+                    <div style={{ marginTop: '12px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                            <span className={`badge badge-${item.status.toLowerCase()}`}>{item.status}</span>
+                            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: '500' }}>{item.category}</span>
+                        </div>
+                        <h3 style={{ fontSize: '1.1rem', fontWeight: '700' }}>{item.title}</h3>
+                        <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', margin: '4px 0' }}>📍 {item.location}</p>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px' }}>
+                            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{item.date}</span>
+                            <button className="btn-soft" style={{ padding: '6px 16px', fontSize: '0.8rem' }}>View Details</button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const Home = () => {
+            const { items, navigate } = useApp();
+            const recent = items.slice(0, 3);
+            return (
+                <Layout title="Find what you lost">
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', margin: '20px 0' }}>
+                        <div className="card" style={{ cursor: 'pointer', textAlign: 'center' }} onClick={() => navigate('/report')}>
+                            <div style={{ width: '50px', height: '50px', borderRadius: '50%', background: '#fee2e2', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 8px', fontSize: '1.5rem' }}>🚫</div>
+                            <h3>Lost Item</h3>
+                            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Report what you lost</p>
+                        </div>
+                        <div className="card" style={{ cursor: 'pointer', textAlign: 'center' }} onClick={() => navigate('/report')}>
+                            <div style={{ width: '50px', height: '50px', borderRadius: '50%', background: '#dcfce7', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 8px', fontSize: '1.5rem' }}>✅</div>
+                            <h3>Found Item</h3>
+                            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Report what you found</p>
+                        </div>
+                    </div>
+                    <div className="section-title">
+                        <span>Recent Posts</span>
+                        <button onClick={() => navigate('/listing')} style={{ color: 'var(--primary)', fontWeight: '600' }}>View All →</button>
+                    </div>
+                    <div>{recent.map(i => <ItemCard key={i.id} item={i} />)}</div>
+                </Layout>
+            );
+        };
+
+        const Listing = () => {
+            const { items, searchQuery, setSearchQuery, filterCategory, setFilterCategory } = useApp();
+            const cats = ['All', 'Mobile', 'Wallet', 'ID Card', 'Pets', 'Electronics', 'Others'];
+            return (
+                <Layout title="Browse Items">
+                    <input type="text" placeholder="Search items..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} style={{ margin: '10px 0 16px' }} />
+                    <div className="filter-scroll" style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '16px' }}>
+                        {cats.map(c => (
+                            <button key={c} onClick={() => setFilterCategory(c)} className={filterCategory === c ? 'btn-primary' : 'btn-soft'} style={{ padding: '8px 16px', borderRadius: '20px', whiteSpace: 'nowrap' }}>{c}</button>
+                        ))}
+                    </div>
+                    <div>{items.map(i => <ItemCard key={i.id} item={i} />)}</div>
+                </Layout>
+            );
+        };
+
+        const Report = () => {
+            const { addItem, navigate, user } = useApp();
+            const [data, setData] = useState({ title: '', category: 'Mobile', location: '', status: 'Lost', date: new Date().toISOString().split('T')[0], contact: user?.email || '', image: '', description: '' });
+            const fileRef = useRef();
+
+            const handleFile = (e) => {
+                const f = e.target.files[0];
+                if (f) {
+                    const r = new FileReader();
+                    r.onloadend = () => setData(prev => ({ ...prev, image: r.result }));
+                    r.readAsDataURL(f);
+                }
+            };
+
+            const submit = (e) => {
+                e.preventDefault();
+                addItem(data);
+                alert("Report submitted successfully!");
+                navigate('/');
+            };
+
+            return (
+                <Layout title="Report Item" showBack={true}>
+                    <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '10px' }}>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                            <button type="button" onClick={() => setData(prev => ({ ...prev, status: 'Lost' }))} className={data.status === 'Lost' ? 'btn-primary' : 'btn-soft'} style={{ flex: 1 }}>Lost</button>
+                            <button type="button" onClick={() => setData(prev => ({ ...prev, status: 'Found' }))} className={data.status === 'Found' ? 'btn-primary' : 'btn-soft'} style={{ flex: 1 }}>Found</button>
+                        </div>
+                        <input type="text" placeholder="Item Name" required value={data.title} onChange={e => setData(prev => ({ ...prev, title: e.target.value }))} />
+                        <select value={data.category} onChange={e => setData(prev => ({ ...prev, category: e.target.value }))}>
+                            {['Mobile', 'Wallet', 'ID Card', 'Electronics', 'Pets', 'Others'].map(c => <option key={c}>{c}</option>)}
+                        </select>
+                        <input type="text" placeholder="Location" required value={data.location} onChange={e => setData(prev => ({ ...prev, location: e.target.value }))} />
+                        <textarea placeholder="Description" rows="3" value={data.description} onChange={e => setData(prev => ({ ...prev, description: e.target.value }))} />
+                        <input type="text" placeholder="Contact Detail" required value={data.contact} onChange={e => setData(prev => ({ ...prev, contact: e.target.value }))} />
+                        <div onClick={() => fileRef.current.click()} style={{ height: '150px', border: '2px dashed var(--border)', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', backgroundSize: 'cover', backgroundImage: data.image ? `url(${data.image})` : 'none' }}>
+                            {!data.image && <span>📷 Tap to upload photo</span>}
+                        </div>
+                        <input type="file" ref={fileRef} onChange={handleFile} style={{ display: 'none' }} accept="image/*" />
+                        <button type="submit" className="btn-primary btn">Submit Report</button>
+                    </form>
+                </Layout>
+            );
+        };
+
+        const ItemDetail = ({ id }) => {
+            const { allItems, navigate } = useApp();
+            const item = allItems.find(i => i.id == id);
+            const [show, setShow] = useState(false);
+            if (!item) return <Layout title="Not Found" showBack={true}><p>Item not found.</p></Layout>;
+            return (
+                <Layout title="Item Details" showBack={true}>
+                    <div style={{ marginTop: '10px' }}>
+                        <img src={item.image} style={{ width: '100%', height: '250px', objectFit: 'cover', borderRadius: 'var(--radius-lg)' }} />
+                        <h2 style={{ fontSize: '1.6rem', fontWeight: '800', marginTop: '16px' }}>{item.title}</h2>
+                        <p style={{ color: 'var(--primary)', fontWeight: '700' }}>{item.category} • {item.status}</p>
+                        <p style={{ color: 'var(--text-muted)', marginBottom: '20px' }}>📍 {item.location} • 📅 {item.date}</p>
+                        <p style={{ lineHeight: '1.6', color: 'var(--text-muted)', marginBottom: '30px' }}>{item.description || "No description."}</p>
+                        {!show ? (
+                            <button className="btn-primary btn" onClick={() => setShow(true)}>Contact Owner</button>
+                        ) : (
+                            <div className="card" style={{ background: 'var(--primary-soft)', textAlign: 'center' }}>
+                                <h3>{item.contact}</h3>
+                                <button className="btn-soft btn" style={{ marginTop: '10px' }} onClick={() => setShow(false)}>Hide Contact</button>
+                            </div>
+                        )}
+                    </div>
+                </Layout>
+            );
+        };
+
+        const Admin = () => {
+            const { allItems, removeItem, isAdmin, navigate } = useApp();
+            if (!isAdmin) return <Layout title="Admin Only" showBack={true}><center><p>Please login as admin@findit.com</p><button className="btn-primary btn" onClick={() => navigate('/')} style={{ marginTop: '20px' }}>Go Home</button></center></Layout>;
+            return (
+                <Layout title="Admin Board">
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', marginBottom: '20px' }}>
+                        <div className="card" style={{ textAlign: 'center' }}><h4>{allItems.length}</h4><p>Total</p></div>
+                        <div className="card" style={{ textAlign: 'center' }}><h4>{allItems.filter(i => i.status === 'Lost').length}</h4><p>Lost</p></div>
+                        <div className="card" style={{ textAlign: 'center' }}><h4>{allItems.filter(i => i.status === 'Found').length}</h4><p>Found</p></div>
+                    </div>
+                    {allItems.map(i => (
+                        <div key={i.id} className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                            <div>
+                                <h4 style={{ fontSize: '0.9rem' }}>{i.title}</h4>
+                                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{i.date}</p>
+                            </div>
+                            <button onClick={() => removeItem(i.id)} style={{ color: 'var(--error)' }}>🗑️</button>
+                        </div>
+                    ))}
+                </Layout>
+            );
+        };
+
+        const Login = () => {
+            const { login } = useApp();
+            const [data, setData] = useState({ name: '', email: '', password: '' });
+            return (
+                <div style={{ padding: '40px 20px', minHeight: '100vh', background: 'var(--primary-soft)', display: 'flex', alignItems: 'center' }}>
+                    <div className="card" style={{ width: '100%', textAlign: 'center', padding: '40px 20px' }}>
+                        <h1 style={{ color: 'var(--primary)', size: '2.5rem' }}>FindIt</h1>
+                        <p style={{ color: 'var(--text-muted)', marginBottom: '30px' }}>Student assistance tool</p>
+                        <form onSubmit={(e) => { e.preventDefault(); login({ name: data.name || data.email.split('@')[0], email: data.email }); }}>
+                            <input type="text" placeholder="Name" value={data.name} onChange={e => setData({ ...data, name: e.target.value })} style={{ marginBottom: '12px' }} />
+                            <input type="email" placeholder="Email" required value={data.email} onChange={e => setData({ ...data, email: e.target.value })} style={{ marginBottom: '12px' }} />
+                            <input type="password" placeholder="Password" required style={{ marginBottom: '20px' }} />
+                            <button type="submit" className="btn-primary btn">Login / Sign Up</button>
+                        </form>
+                        <p style={{ marginTop: '20px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>Admin: admin@findit.com</p>
+                    </div>
+                </div>
+            );
+        };
+
+        const App = () => {
+            const { user, currentPath } = useApp();
+            if (!user) return <Login />;
+            if (currentPath === '/') return <Home />;
+            if (currentPath === '/listing') return <Listing />;
+            if (currentPath === '/report') return <Report />;
+            if (currentPath === '/admin') return <Admin />;
+            if (currentPath.startsWith('/item/')) return <ItemDetail id={currentPath.split('/')[2]} />;
+            return <Home />;
+        };
+
+        ReactDOM.createRoot(document.getElementById('root')).render(
+            <AppProvider><App /></AppProvider>
+        );
+    </script>
+</body>
+
+</html>
